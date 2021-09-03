@@ -1,6 +1,6 @@
-# Ritmo_Assignment
+# Ritmo Assignment
 
-## Watch Rmarkdown
-[Github Page](https://yanaysg.github.io/Scrapping-and-Multivariate-Analysis-MLB-Statistics/)
+## Time Series Forecasting
+[Github Page](https://yanaysg.github.io/Ritmo_Assignment/)
 
 
