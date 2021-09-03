@@ -1,6 +1,6 @@
 ---
-title: "Series Temporales"
-author: "Yanay"
+title: "Time Series Forecasting"
+author: "Yanay Rolo Milian"
 output: html_document
 ---
 
