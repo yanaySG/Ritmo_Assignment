@@ -1,0 +1,129 @@
+---
+title: "Series Temporales"
+author: "Yanay"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = '80%', fig.align = 'center')
+```
+
+####Adding libraries
+
+```{r libraries, warning=FALSE, message=FALSE}
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(forecast)
+library(lubridate)
+library(tseries)
+library(pander)
+library(lmtest)
+
+
+```
+
+####Loading data
+
+```{r data, message=FALSE}
+data <- read_csv("C:/Users/yanay/Desktop/Fake Customer Data - Sheet1.csv") %>% as.data.frame()
+ggplot(data, aes(Date, Revenue)) + geom_line(colour = "BLUE") + xlab("") + ylab("")
+```
+
+####Transforming data into ts object to use ARIMA models
+
+```{r }
+data1 = data
+rownames(data1) = data1$Date
+data1$Date=NULL
+data_ts <-ts(data1, 
+             start = c(year(as.POSIXlt(data$Date%>%first(), format="%Y-/%m-/%d")), 1), 
+             frequency = 365)
+
+
+```
+
+####Preparing data: 
+
+To fit the ARIMA model, a training window is established whose data are all the values except the 5 months that will be used for testing.
+
+```{r }
+
+end_date_train <- as.Date(data1%>%rownames()%>%last()) %m-% months(5)
+inds <- seq(end_date_train, as.Date(data$Date%>%last()), by = "day")
+
+data.ts_Train = window(data_ts, 
+                       start=c(year(as.POSIXlt(data$Date%>%first(), format="%Y-/%m-/%d")), 1), 
+                       end = c( year(end_date_train), as.numeric(format(inds[1], "%j"))),
+                       frequency = 365)
+```
+
+####Augmented Dickey-Fuller (ADF) test and ts transformation
+
+A time series has to be stationary for fitting ARIMA models, which means it cannot have a trend and has to have constant variance and autocorrelation structure over time.
+
+If the p-value from the ADF test is less than 0.05, then we can reject the null hypothesis and conclude that the time series is stationary.
+
+Transformations:
+- Logarithm
+- Differences
+
+```{r, warning=FALSE, warning=FALSE, message=FALSE}
+adf_data     <- adf.test(data.ts_Train, alternative = "stationary")$p.value 
+adf_data_log <- adf.test(log(data.ts_Train), alternative = "stationary")$p.value
+adf_data_dif <- adf.test(diff(data.ts_Train), alternative = "stationary")$p.value
+```
+
+```{r}
+pander(data.frame(adf_data,adf_data_log,adf_data_dif))
+ggtsdisplay(diff(data.ts_Train))
+```
+
+After several attempts it seems that the data appear to be an ARIMA(1,1,3), although the ACF and PACF indicators do not have good results. 
+
+```{r}
+fit <- Arima(data.ts_Train, order=c(1,1,3), include.drift=TRUE, include.constant = TRUE)
+#fit%>%summary()
+```
+
+#### Ljung-Box test (or white noise test)
+
+If the p-value from the Ljung-Box test is greater than 0.05, then there is wite noise and the model is well fitted.
+
+```{r}
+LjungBox_test=Box.test(residuals(fit), type="Ljung-Box")$p.value 
+pander(data.frame(LjungBox_test))
+```
+
+```{r}
+autoplot(data.ts_Train) + autolayer(fit$fitted, series = "fit")
+```
+
+As we can see, the ARIMA model fits relatively well with respect to the real data
+
+
+#### Forcasting
+
+To forecast and test the accuracy of the model, it was saved the last 5 months of the data.
+
+
+```{r, message=FALSE}
+days_to_forecast <- as.numeric( as.Date(data1%>%rownames()%>%last()) - end_date_train )
+plot(forecast(fit, h=days_to_forecast), main="", ylab="Retail index")
+lines(data_ts, col="black")
+```
+
+The results are disappointing, it is necessary to continue looking for other options for the ARIMA model
+
+#### Let's perform now an automatic forecasting
+
+```{r, message=FALSE, warning=FALSE}
+fit <- auto.arima(data.ts_Train, trace = FALSE)
+plot(forecast(fit, h=days_to_forecast), main="", ylab="")
+lines(data_ts, col="black")
+```
+
+The results are a little better but still not good enough.
+
+
